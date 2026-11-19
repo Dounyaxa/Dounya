@@ -15,7 +15,7 @@
     "dotenv": "^17.4.2",
     "express": "^4.22.3",
     "openai": "6.49.0",
-    "ws3-fca": "^3.5.2",
+    "neokex-fca": "5.0.6",
     "ytpl": "^2.3.0"
   },
   "allowScripts": {

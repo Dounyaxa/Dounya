@@ -1,5 +1,5 @@
 const path = require("path");
-const { login } = require("ws3-fca");
+const { login } = require("neokex-fca");
 const { loadCommands, handleMessage, handleEvent, commands } = require("./main");
 const { loadConfig, ConfigError } = require("./config");
 const { createLogger } = require("./logger");
@@ -218,7 +218,7 @@ function onLogin(err, api) {
   log.info("login", "تم تسجيل الدخول بنجاح");
   persistSession();
 
-  if (api.ctx && api.ctx.lastSeqId) api.ctx.firstListen = true;
+  // neokex-fca manages seqId/firstListen internally on the server side.
   loadCommands();
   startListening(api);
 

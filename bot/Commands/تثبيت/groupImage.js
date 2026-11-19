@@ -1,15 +1,14 @@
 const fs = require("fs");
-const ws3Utils = require("ws3-fca/src/utils");
 
 function parseFacebookResponse(response) {
   if (!response) return {};
-  if (typeof response.body === "object" && response.body !== null) {
-    return response.body;
+  if (typeof response === "object" && response !== null) {
+    return response;
   }
 
-  let body = Buffer.isBuffer(response.body)
-    ? response.body.toString("utf8")
-    : String(response.body || "");
+  let body = Buffer.isBuffer(response)
+    ? response.toString("utf8")
+    : String(response || "");
   body = body.replace(/^\s*for\s*\(\s*;\s*;\s*\)\s*;\s*/, "").trim();
 
   try {
@@ -68,7 +67,7 @@ function findImageURL(value, threadID, seen = new Set(), depth = 0) {
 }
 
 async function readGroupImage(api, threadID) {
-  if (!api || !api.defaultFuncs || !api.ctx) {
+  if (!api || typeof api.httpPost !== "function") {
     throw new Error("جلسة فيسبوك غير جاهزة");
   }
 
@@ -88,37 +87,30 @@ async function readGroupImage(api, threadID) {
     batch_name: "MessengerGraphQLThreadFetcher",
   };
 
-  const response = await api.defaultFuncs.post(
+  const body = await api.httpPost(
     "https://www.facebook.com/api/graphqlbatch/",
-    api.ctx.jar,
     form,
-    api.ctx,
   );
-  const parsed = await ws3Utils.parseAndCheckLogin(api.ctx, api.defaultFuncs)(
-    response,
-  );
+  const parsed = parseFacebookResponse(body);
   return findImageURL(parsed, threadID);
 }
 
 async function changeGroupImage(api, imagePath, threadID) {
-  if (!api || !api.defaultFuncs || !api.ctx) {
+  if (!api || typeof api.httpPostFormData !== "function") {
     throw new Error("جلسة فيسبوك غير جاهزة");
   }
   if (!fs.existsSync(imagePath)) {
     throw new Error("ملف الصورة المحفوظة غير موجود");
   }
 
-  const uploadResponse = await api.defaultFuncs.postFormData(
+  const uploadBody = await api.httpPostFormData(
     "https://upload.facebook.com/ajax/mercury/upload.php",
-    api.ctx.jar,
     {
       images_only: "true",
       "attachment[]": fs.createReadStream(imagePath),
     },
-    {},
-    api.ctx,
   );
-  const uploadData = parseFacebookResponse(uploadResponse);
+  const uploadData = parseFacebookResponse(uploadBody);
   const metadata = uploadData.payload && uploadData.payload.metadata;
   const imageID = metadata && metadata[0] && metadata[0].image_id;
   if (!imageID) {
@@ -130,7 +122,7 @@ async function changeGroupImage(api, imagePath, threadID) {
   const form = {
     client: "mercury",
     action_type: "ma-type:log-message",
-    author: `fbid:${api.ctx.userID}`,
+    author: `fbid:${api.getCurrentUserID()}`,
     author_email: "",
     ephemeral_ttl_mode: "0",
     is_filtered_content: false,
@@ -160,13 +152,11 @@ async function changeGroupImage(api, imagePath, threadID) {
     thread_image_id: String(imageID),
   };
 
-  const response = await api.defaultFuncs.post(
+  const body = await api.httpPost(
     "https://www.facebook.com/messaging/set_thread_image/",
-    api.ctx.jar,
     form,
-    api.ctx,
   );
-  const result = parseFacebookResponse(response);
+  const result = parseFacebookResponse(body);
   if (result && (result.error || result.errors)) {
     throw new Error(
       result.error_description ||

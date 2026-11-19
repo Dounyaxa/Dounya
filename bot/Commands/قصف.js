@@ -84,42 +84,16 @@ function getTextForCycle(index) {
 }
 
 const activeLoops = new Map();
-let _reqCounter = 0;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// دالة مخصصة للكتابة — تُجبر is_group_thread=1 لأن ws3-fca يكشف الجروب بطول >= 16
-// لكن جروباتنا 15 رقم فيُرسلها كـ private خطأً
+// neokex-fca exposes sendTypingIndicator(threadID, isTyping, isGroup).
+// We always pass isGroup=true since this bot operates in group threads.
 async function sendTyping(api, threadID, isTyping) {
   try {
-    const mqttClient = api.ctx && api.ctx.mqttClient;
-    if (!mqttClient) {
-      // fallback للدالة الأصلية
-      await api.sendTypingIndicator(isTyping, threadID);
-      return;
-    }
-    const wsContent = {
-      app_id: 2220391788200892,
-      payload: JSON.stringify({
-        label: 3,
-        payload: JSON.stringify({
-          thread_key: String(threadID),
-          is_group_thread: 1, // ← دائماً 1 لأننا نشتغل في جروبات
-          is_typing: isTyping ? 1 : 0,
-          attribution: 0,
-        }),
-        version: 5849951561777440,
-      }),
-      request_id: ++_reqCounter,
-      type: 4,
-    };
-    await new Promise((resolve, reject) =>
-      mqttClient.publish("/ls_req", JSON.stringify(wsContent), {}, (err) =>
-        err ? reject(err) : resolve(),
-      ),
-    );
+    await api.sendTypingIndicator(threadID, isTyping, true);
   } catch (e) {
     console.error(`[قصف] خطأ typing:`, e.message || e);
   }

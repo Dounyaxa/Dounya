@@ -1,5 +1,4 @@
 const activeRuns = new Map();
-const ws3Utils = require('ws3-fca/src/utils');
 
 const STOP_MESSAGES = new Set(['بانكاي ايقاف', 'بانكاي إيقاف']);
 const START_PREFIX = 'بانكاي ';
@@ -24,77 +23,13 @@ function stopRun(threadID) {
   return true;
 }
 
-function callDirectGroupMemberAction(api, action, targetID, threadID) {
-  return new Promise((resolve, reject) => {
-    try {
-      const ctx = api.ctx;
-      if (!ctx || !ctx.mqttClient || typeof ctx.mqttClient.publish !== 'function') {
-        throw new Error('اتصال MQTT غير متاح لتنفيذ بانكاي');
-      }
-
-      ctx.wsReqNumber = (ctx.wsReqNumber || 0) + 1;
-      ctx.wsTaskNumber = (ctx.wsTaskNumber || 0) + 1;
-
-      const queryPayload = action === 'add'
-        ? {
-            thread_key: parseInt(threadID, 10),
-            contact_ids: [parseInt(targetID, 10)],
-            sync_group: 1
-          }
-        : {
-            thread_id: threadID,
-            contact_id: targetID,
-            sync_group: 1
-          };
-
-      const query = {
-        label: action === 'add' ? '23' : '140',
-        payload: JSON.stringify(queryPayload),
-        queue_name: action === 'add' ? threadID : 'remove_participant_v2',
-        task_id: ctx.wsTaskNumber
-      };
-
-      const context = {
-        app_id: ctx.appID,
-        payload: {
-          epoch_id: parseInt(ws3Utils.generateOfflineThreadingID(), 10),
-          tasks: [query],
-          version_id: '24631415369801570'
-        },
-        request_id: ctx.wsReqNumber,
-        type: 3
-      };
-      context.payload = JSON.stringify(context.payload);
-
-      ctx.mqttClient.publish(
-        '/ls_req',
-        JSON.stringify(context),
-        { qos: 1, retain: false },
-        error => {
-          if (error) reject(error);
-          else resolve({ action, targetID, threadID });
-        }
-      );
-    } catch (error) {
-      reject(error);
-    }
-  });
-}
-
 async function callGroupMemberAction(api, action, targetID, threadID) {
-  if (api.ctx && api.ctx.mqttClient) {
-    return callDirectGroupMemberAction(api, action, targetID, threadID);
+  if (action === 'add') {
+    await api.addUserToGroup(targetID, threadID);
+  } else {
+    await api.removeUserFromGroup(targetID, threadID);
   }
-
-  if (typeof api.gcmember !== 'function') {
-    throw new Error('اتصال MQTT و api.gcmember غير متاحين في نسخة ws3-fca الحالية');
-  }
-
-  const result = await api.gcmember(action, targetID, threadID);
-  if (result && result.type === 'error_gc') {
-    throw new Error(result.error || `فشل تنفيذ إجراء ${action}`);
-  }
-  return result;
+  return { action, targetID, threadID };
 }
 
 async function runCycle(api, threadID, run) {

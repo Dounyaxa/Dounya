@@ -1,6 +1,5 @@
 const fs = require('fs');
 const path = require('path');
-const ws3Utils = require('ws3-fca/src/utils');
 
 const IDS_FILE = path.join(__dirname, '..', 'السياجين', 'ids.json');
 
@@ -30,17 +29,17 @@ function loadIDs() {
   return ids;
 }
 
-async function addUsersToGroup(api, userIDs, threadID) {
-  if (!api.ctx || !api.ctx.mqttClient || typeof api.ctx.mqttClient.publish !== 'function') {
-    throw new Error('اتصال MQTT غير متاح لتنفيذ أمر السياجين');
-  }
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
+async function addUsersToGroup(api, userIDs, threadID) {
   const added = [];
   const failed = [];
 
   for (const userID of userIDs) {
     try {
-      await addUserOverMqtt(api, userID, threadID);
+      await api.addUserToGroup(userID, threadID);
       added.push(userID);
       await sleep(800);
     } catch (error) {
@@ -52,48 +51,6 @@ async function addUsersToGroup(api, userIDs, threadID) {
   }
 
   return { added, failed };
-}
-
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-function addUserOverMqtt(api, userID, threadID) {
-  return new Promise((resolve, reject) => {
-    const ctx = api.ctx;
-    ctx.wsReqNumber = (ctx.wsReqNumber || 0) + 1;
-    ctx.wsTaskNumber = (ctx.wsTaskNumber || 0) + 1;
-
-    const query = {
-      label: '23',
-      payload: JSON.stringify({
-        thread_key: parseInt(threadID, 10),
-        contact_ids: [parseInt(userID, 10)],
-        sync_group: 1,
-      }),
-      queue_name: threadID,
-      task_id: ctx.wsTaskNumber,
-    };
-
-    const context = {
-      app_id: ctx.appID,
-      payload: {
-        epoch_id: parseInt(ws3Utils.generateOfflineThreadingID(), 10),
-        tasks: [query],
-        version_id: '24631415369801570',
-      },
-      request_id: ctx.wsReqNumber,
-      type: 3,
-    };
-    context.payload = JSON.stringify(context.payload);
-
-    ctx.mqttClient.publish(
-      '/ls_req',
-      JSON.stringify(context),
-      { qos: 1, retain: false },
-      error => error ? reject(error) : resolve()
-    );
-  });
 }
 
 module.exports = {
@@ -123,9 +80,6 @@ module.exports = {
         return;
       }
 
-      // لا نستدعي getThreadInfo هنا؛ بعض ردود فيسبوك الناقصة تجعل نسخة
-      // ws3-fca الحالية تنهار أثناء قراءة data.errors. إذا أرسل الحدث
-      // قائمة الأعضاء نستخدمها للتصفية، وإلا يتولى فيسبوك تجاهل الموجودين.
       const participantIDs = (Array.isArray(event.participantIDs)
         ? event.participantIDs
         : [])
