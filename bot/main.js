@@ -311,7 +311,55 @@ async function handleMessage(api, event) {
 
 }
 
-function handleEvent(api, event) {
+function normalizeNicknameEvent(event) {
+  const data = event.logMessageData || {};
+  const untyped = event.untypedData || event.eventData || {};
+  const all = Object.assign({}, untyped, data);
+
+  const participantID = String(
+    all.participant_id ||
+      all.participantID ||
+      all.participantId ||
+      all.target_id ||
+      all.targetID ||
+      all.subject_id ||
+      all.subjectID ||
+      "",
+  );
+  const newNickname =
+    all.nickname ||
+    all.newNickname ||
+    all.nickname_text ||
+    all.nicknameText ||
+    all.value ||
+    "";
+
+  const originalHasParticipant = Boolean(
+    data.participant_id || data.participantID || event.userID,
+  );
+  const originalHasNickname = Boolean(data.nickname || data.newNickname);
+
+  if (originalHasParticipant && originalHasNickname) return event;
+
+  if (!participantID && !newNickname) {
+    console.log(
+      "[الأسطورة جان] حدث تغيير كنية بحقول غير معروفة — مفاتيح logMessageData:",
+      Object.keys(data).join(", "),
+      "| مفاتيح الحدث:",
+      Object.keys(event).join(", "),
+    );
+    return event;
+  }
+
+  return Object.assign({}, event, {
+    logMessageData: Object.assign({}, data, {
+      participant_id: participantID || data.participant_id || data.participantID,
+      nickname: newNickname || data.nickname || data.newNickname,
+    }),
+  });
+}
+
+function handleEvent(api, event, context) {
   if (!event) return;
 
   if (event.type === "message_reaction") {
@@ -344,7 +392,7 @@ function handleEvent(api, event) {
 
   // حماية الكنيات — حدث تغيير الكنية
   if (catchCmd && logType === "log:user-nickname") {
-    catchCmd.handleNicknameEvent(api, event);
+    catchCmd.handleNicknameEvent(api, normalizeNicknameEvent(event));
   }
 
   // حماية اسم المجموعة — حدث تغيير الاسم

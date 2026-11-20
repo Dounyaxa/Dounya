@@ -11,6 +11,8 @@ const { classifyError } = require("./login-errors");
 const { computeBackoffDelay } = require("./backoff");
 const { createMessageDeduper } = require("./message-dedup");
 const { createMemoryMonitor } = require("./memory-monitor");
+const { wrapApi } = require("./api-compat");
+const { createJoinTracker } = require("./join-tracker");
 const { createHealthServer } = require("./health-server");
 const { createKeepAlive } = require("./keep-alive");
 const { RESTART_EXIT_CODE } = require("./supervisor");
@@ -39,6 +41,7 @@ const isSupervised = process.env.BOT_SUPERVISED === "1";
 const conn = createConnectionState();
 const sessionStore = createSessionStore({ filePath: SESSION_FILE, log });
 const deduper = createMessageDeduper();
+const joinTracker = createJoinTracker();
 
 let releaseLock = () => {};
 if (!isSupervised) {
@@ -166,6 +169,13 @@ function onListenerEvent(api, err, event) {
 
   if (event.type === "message" || event.type === "message_reply") {
     if (!deduper.claim(event.messageID)) return;
+    if (joinTracker.isHistoricalMessage(event)) {
+      log.info("messages", "تم تجاهل رسالة تاريخية قبل انضمام البوت", {
+        threadID: String(event.threadID || ""),
+        messageID: event.messageID,
+      });
+      return;
+    }
     conn.markMessage();
     Promise.resolve(handleMessage(api, event)).catch((error) =>
       log.error("messages", "خطأ في معالجة رسالة", { message: error.message || error }),
@@ -174,7 +184,7 @@ function onListenerEvent(api, err, event) {
   }
 
   try {
-    handleEvent(api, event);
+    handleEvent(api, event, { joinTracker });
   } catch (error) {
     log.error("messages", "خطأ في معالجة حدث", { message: error.message });
   }
@@ -220,11 +230,11 @@ function onLogin(err, api) {
 
   // neokex-fca manages seqId/firstListen internally on the server side.
   loadCommands();
-  startListening(api);
+  startListening(wrapApi(api));
 
   try {
     const qasf = commands.get("قصف");
-    if (qasf && qasf.resumeAll) qasf.resumeAll(api);
+    if (qasf && qasf.resumeAll) qasf.resumeAll(wrapApi(api));
   } catch (error) {
     log.error("commands", "خطأ في استئناف قصف", { message: error.message });
   }
