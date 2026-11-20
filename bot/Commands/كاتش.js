@@ -315,14 +315,17 @@ module.exports = {
 
     const data = rawData.untypedData || rawData;
 
+    // في مكتبة fca الكلاسيكية، event.userID يمثل الشخص الذي نفّذ التغيير،
+    // وليس necessarily العضو الذي تغيرت كنيته. نعتمد على حقول logMessageData
+    // التي تحدد العضو المستهدف بدقة، ولا نستخدم event.userID كحل أخير.
     const changedUIDValue =
       data.participant_id ||
       data.participantID ||
       data.targetID ||
       data.targetUserID ||
+      data.target_id ||
       event.participantID ||
       event.targetID ||
-      event.userID ||
       '';
 
     const changedUID = String(changedUIDValue);
@@ -330,13 +333,33 @@ module.exports = {
     const newNicknameValue =
       data.nickname ??
       data.newNickname ??
+      data.nickname_text ??
+      data.nicknameText ??
+      data.value ??
       event.nickname ??
       event.newNickname ??
       '';
 
     const newNickname = String(newNicknameValue);
 
-    if (!changedUID) return;
+    if (!changedUID) {
+      console.log(
+        '[كاتش] وصل حدث تغيير كنية لكن لم يُعثر على معرف العضو المستهدف. ' +
+        'مفاتيح logMessageData:', Object.keys(rawData).join(', ') +
+        ' | مفاتيح الحدث:', Object.keys(event).join(', ')
+      );
+      return;
+    }
+
+    if (!newNickname) {
+      console.log(
+        '[كاتش] وصل حدث تغيير كنية للعضو ' + changedUID +
+        ' لكن لم يُعثر على الكنية الجديدة. ' +
+        'مفاتيح logMessageData:', Object.keys(rawData).join(', ')
+      );
+      return;
+    }
+
     if (newNickname === protectedName) return;
 
     console.log(
