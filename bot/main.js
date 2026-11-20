@@ -389,6 +389,7 @@ function handleEvent(api, event, context) {
 
   const catchCmd = commands.get("كاتش");
   const pinCmd = commands.get("تثبيت");
+  const joinTracker = context && context.joinTracker ? context.joinTracker : null;
 
   // حماية الكنيات — حدث تغيير الكنية
   if (catchCmd && logType === "log:user-nickname") {
@@ -425,15 +426,20 @@ function handleEvent(api, event, context) {
     const addedParticipants = logData.addedParticipants || [];
     const botID = api.getCurrentUserID ? api.getCurrentUserID() : null;
 
-    if (
+    const extractID = (p) =>
+      typeof p === "string" || typeof p === "number"
+        ? String(p)
+        : String(p.userFbId || p.userID || p.id || p.fbid || "");
+
+    const botJoined =
       botID &&
-      addedParticipants.some(
-        (p) => String(p.userFbId || p.userID || p.id || "") === String(botID),
-      )
-    ) {
+      addedParticipants.some((p) => extractID(p) === String(botID));
+
+    if (botJoined) {
       console.log(
         `[الأسطورة جان] ✅ تمت إضافتي إلى المجموعة ${threadID} — جاري تعيين الكنية...`,
       );
+      if (joinTracker) joinTracker.recordJoin(threadID, botID, addedParticipants);
       setTimeout(async () => {
         try {
           await api.changeNickname(BOT_NICKNAME, threadID, String(botID));
@@ -458,4 +464,4 @@ function handleEvent(api, event, context) {
   }
 }
 
-module.exports = { loadCommands, handleMessage, handleEvent, commands };
+module.exports = { loadCommands, handleMessage, handleEvent, commands, normalizeNicknameEvent };
