@@ -69,7 +69,7 @@ module.exports = {
       const results = new Array(participants.length);
       await forEachWithConcurrency(participants, 3, async (userID, index) => {
         try {
-          await api.nickname('', threadID, userID);
+          await api.changeNickname('', threadID, userID);
           results[index] = true;
         } catch (error) {
           console.error(`[حذف كاتش] فشل حذف كنية ${userID}:`, error.message || error);

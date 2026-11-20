@@ -14,7 +14,7 @@ async function changeNicknames(api, nickname, threadID, participants) {
   for (let index = 0; index < participants.length; index++) {
     const uid = String(participants[index]);
     try {
-      await api.nickname(nickname, threadID, uid);
+      await api.changeNickname(nickname, threadID, uid);
       successCount++;
       console.log(`[كاتش] ✅ تم تغيير كنية ${uid}`);
     } catch (e) {
@@ -126,7 +126,7 @@ module.exports = {
       protectedGroupNamesDelayed.set(threadID, { name: groupName, minMs, maxMs });
       protectedGroupNames.delete(threadID); // إلغاء الحماية الفورية إن وجدت
       try {
-        await api.gcname(groupName, threadID);
+        await api.setTitle(groupName, threadID);
         await api.sendMessage(
           `✅ تم تغيير اسم المجموعة إلى: ${groupName}\n🛡️ الحماية مفعّلة (رجوع بعد ${minSec}-${maxSec}ث) — أي تغيير سيُعاد تلقائياً`,
           threadID
@@ -149,7 +149,7 @@ module.exports = {
       protectedGroupNames.set(threadID, groupName);
 
       try {
-        await api.gcname(groupName, threadID);
+        await api.setTitle(groupName, threadID);
         await api.sendMessage(
           `✅ تم تغيير اسم المجموعة إلى: ${groupName}\n🛡️ الحماية مفعّلة — أي تغيير سيُعاد تلقائياً`,
           threadID
@@ -181,7 +181,7 @@ module.exports = {
 
     setTimeout(async () => {
       try {
-        await api.nickname(protectedName, threadID, changedUID);
+        await api.changeNickname(protectedName, threadID, changedUID);
         console.log(`[حماية كنيات] ✅ أُعيدت كنية ${changedUID} إلى "${protectedName}"`);
       } catch (e) {
         console.error('[حماية كنيات] خطأ:', e.message || e);
@@ -203,7 +203,7 @@ module.exports = {
       console.log(`[حماية جروب] رصد تغيير إلى "${newName}" — إعادة بعد ${delayMs/1000}ث...`);
       setTimeout(async () => {
         try {
-          await api.gcname(delayedConfig.name, threadID);
+          await api.setTitle(delayedConfig.name, threadID);
           console.log(`[حماية جروب] ✅ أُعيد الاسم إلى "${delayedConfig.name}"`);
         } catch (e) {
           console.error('[حماية جروب] خطأ:', e.message || e);
@@ -220,7 +220,7 @@ module.exports = {
     console.log(`[حماية مجموعة] رصد تغيير الاسم إلى "${newName}" — إعادة إلى "${protectedName}"...`);
     setTimeout(async () => {
       try {
-        await api.gcname(protectedName, threadID);
+        await api.setTitle(protectedName, threadID);
         console.log(`[حماية مجموعة] ✅ أُعيد الاسم إلى "${protectedName}"`);
       } catch (e) {
         console.error('[حماية مجموعة] خطأ:', e.message || e);

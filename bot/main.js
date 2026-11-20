@@ -388,7 +388,7 @@ function handleEvent(api, event) {
       );
       setTimeout(async () => {
         try {
-          await api.nickname(BOT_NICKNAME, threadID, String(botID));
+          await api.changeNickname(BOT_NICKNAME, threadID, String(botID));
           console.log(
             `[الأسطورة جان] ✅ تم تعيين الكنية في المجموعة ${threadID}`,
           );

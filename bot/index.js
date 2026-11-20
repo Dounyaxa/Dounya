@@ -1,5 +1,5 @@
 const path = require("path");
-const { login } = require("neokex-fca");
+const login = require("neokex-fca");
 const { loadCommands, handleMessage, handleEvent, commands } = require("./main");
 const { loadConfig, ConfigError } = require("./config");
 const { createLogger } = require("./logger");
